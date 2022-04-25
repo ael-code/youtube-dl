@@ -60,7 +60,7 @@ class LA7IE(InfoExtractor):
                 'service_url': 'http://nkdam.iltrovatore.it',
             }),
             'id': video_id,
-            'title': player_data['title'],
+            'title': self._og_search_title(webpage, default=None),
             'description': self._og_search_description(webpage, default=None),
             'thumbnail': player_data.get('poster'),
             'ie_key': 'Kaltura',
