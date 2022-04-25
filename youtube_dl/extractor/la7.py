@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 from .common import InfoExtractor
 from ..utils import (
     js_to_json,
-    smuggle_url,
 )
 
 
@@ -48,20 +47,42 @@ class LA7IE(InfoExtractor):
 
         webpage = self._download_webpage(url, video_id)
 
-        player_data = self._parse_json(
-            self._search_regex(
-                [r'(?s)videoParams\s*=\s*({.+?});', r'videoLa7\(({[^;]+})\);'],
-                webpage, 'player data'),
-            video_id, transform_source=js_to_json)
+        player_data = self._search_regex(
+            [r'(?s)videoParams\s*=\s*({.+?});', r'videoLa7\(({[^;]+})\);'],
+            webpage, 'player data')
+        js_sources = self._search_regex(r'src\s*:\s*({.+?})\s*,', player_data, 'sources')
+        sources = self._parse_json(js_sources, video_id, transform_source=js_to_json)
+
+        formats = []
+        if 'mp4' in sources:
+            mp4_url = sources['mp4'].replace("vodpmd.la7.it.edgesuite.net/", "vodpkg.iltrovatore.it/local/mp4/");
+            mp4_url = mp4_url.replace("http://", "https://")
+            formats.append({
+                'url': mp4_url,
+                'ext': 'mp4',
+                'format_id': 'mp4-direct',
+                'format_note': 'mp4 direct download (usually lower quality)',
+                'preference': -50,
+                })
+
+        if 'm3u8' in sources:
+            base_url = sources['m3u8']
+            base_url = base_url.replace("csmil", "urlset")
+            base_url = base_url.replace("http://", "https://")
+
+            dash_url = base_url.replace("la7-vh.akamaihd.net/i/", "awsvodpkg.iltrovatore.it/local/dash/")
+            dash_url = dash_url.replace("master.m3u8", "manifest.mpd")
+            formats.extend(self._extract_mpd_formats(dash_url, video_id, mpd_id='dash', fatal=False))
+
+            m3u8_url = base_url.replace("la7-vh.akamaihd.net/i/", "awsvodpkg.iltrovatore.it/local/hls/")
+            formats.extend(self._extract_m3u8_formats(m3u8_url, video_id, m3u8_id='hls', fatal=False))
+
+        self._sort_formats(formats)
 
         return {
-            '_type': 'url_transparent',
-            'url': smuggle_url('kaltura:103:%s' % player_data['vid'], {
-                'service_url': 'http://nkdam.iltrovatore.it',
-            }),
             'id': video_id,
             'title': self._og_search_title(webpage, default=None),
             'description': self._og_search_description(webpage, default=None),
             'thumbnail': self._og_search_thumbnail(webpage, default=None),
-            'ie_key': 'Kaltura',
+            'formats': formats
         }
