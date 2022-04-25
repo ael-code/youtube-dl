@@ -62,6 +62,6 @@ class LA7IE(InfoExtractor):
             'id': video_id,
             'title': self._og_search_title(webpage, default=None),
             'description': self._og_search_description(webpage, default=None),
-            'thumbnail': player_data.get('poster'),
+            'thumbnail': self._og_search_thumbnail(webpage, default=None),
             'ie_key': 'Kaltura',
         }
